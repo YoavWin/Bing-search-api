@@ -34,15 +34,21 @@ public abstract class BingSearch implements BingWebSearch {
 		URL url = new URL(bingApiHost + bingApiPath + "?q="
 				+ URLEncoder.encode(searchQuery + " " + bingApiAdditionalSearchString, "UTF-8") + "&count="
 				+ bingApiNumOfReturningResult);
-
-		HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-		connection.setRequestProperty("Ocp-Apim-Subscription-Key", bingApiSubcriptionKey);
-
-		try (Scanner scanner = new Scanner(connection.getInputStream())) {
+		HttpsURLConnection connection = null;
+		Scanner scanner = null;
+		try {
+			connection = (HttpsURLConnection) url.openConnection();
+			connection.setRequestProperty("Ocp-Apim-Subscription-Key", bingApiSubcriptionKey);
+			scanner = new Scanner(connection.getInputStream());
 			String response = scanner.useDelimiter("\\A").next();
 			result = (JsonObject) new JsonParser().parse(response);
 		} catch (IOException e) {
 			e.printStackTrace();
+		} finally {
+			if (connection != null)
+				connection.disconnect();
+			if (scanner != null)
+				scanner.close();
 		}
 	}
 }

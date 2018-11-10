@@ -16,50 +16,70 @@ import com.mongodb.client.MongoDatabase;
 import resources.Config;
 
 public class MongoInteractor implements DataBase {
-	private static String mongoDbConnectionString;
-	private static String mongoDbDataBaseName;
-	private static String mongoDbCollectionName;
+	private String mongoDbConnectionString;
+	private String mongoDbDataBaseName;
+	private String mongoDbCollectionName;
+
 	private static MongoInteractor mongoInteractorInstance;
-	private static MongoClient mongoClient;
-	private static MongoDatabase mongoDatabase;
-	private static MongoCollection<Document> mongoCollection;
+	private MongoClient mongoClient;
+
+	private MongoDatabase mongoDatabase;
+	private MongoCollection<Document> mongoCollection;
 
 	private MongoInteractor() {
-		mongoDbConnectionString = Config.getInstance().getProperty("mongoDbConnectionString");
-		mongoDbDataBaseName = Config.getInstance().getProperty("mongoDbCollectionName");
-		mongoDbCollectionName = Config.getInstance().getProperty("mongoDbCollectionName");
+		try {
+			mongoDbConnectionString = Config.getInstance().getProperty("mongoDbConnectionString");
+			mongoDbDataBaseName = Config.getInstance().getProperty("mongoDbCollectionName");
+			mongoDbCollectionName = Config.getInstance().getProperty("mongoDbCollectionName");
+			initConnection();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public static MongoInteractor getInstance() {
 		if (mongoInteractorInstance == null)
 			synchronized (MongoInteractor.class) {
-				if (mongoInteractorInstance == null)
-					initMongoInteractor();
+				if (mongoInteractorInstance == null) {
+					mongoInteractorInstance = new MongoInteractor();
+				}
 			}
 		return mongoInteractorInstance;
 	}
 
-	private static void initMongoInteractor() {
-		mongoInteractorInstance = new MongoInteractor();
-		mongoClient = new MongoClient(new MongoClientURI(mongoDbConnectionString));
-		mongoDatabase = mongoClient.getDatabase(mongoDbDataBaseName);
-		mongoCollection = mongoDatabase.getCollection(mongoDbCollectionName);
+	private void initConnection() {
+
+		try {
+			mongoClient = new MongoClient(new MongoClientURI(mongoDbConnectionString));
+			mongoDatabase = mongoClient.getDatabase(mongoDbDataBaseName);
+			mongoCollection = mongoDatabase.getCollection(mongoDbCollectionName);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public synchronized void write(UrlEntity entity) {
 		Map<String, Object> valuesMap = new HashMap<String, Object>();
 		valuesMap.put("name", entity.getName());
 		valuesMap.put("url", entity.getUrl());
-		mongoCollection.insertOne(new Document(valuesMap));
+		try {
+			mongoCollection.insertOne(new Document(valuesMap));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public synchronized List<UrlEntity> read() {
 		List<UrlEntity> urlEntities = new ArrayList<UrlEntity>();
-		MongoCursor<Document> entitiesIterator = mongoCollection.find().iterator();
+		try (MongoCursor<Document> entitiesIterator = mongoCollection.find().iterator()) {
+			while (entitiesIterator.hasNext()) {
+				Document document = entitiesIterator.next();
+				urlEntities.add(new UrlEntity((String) document.get("name"), (String) document.get("url")));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return urlEntities;
 
-		while (entitiesIterator.hasNext()) {
-			Document document = entitiesIterator.next();
-			urlEntities.add(new UrlEntity((String) document.get("name"), (String) document.get("url")));
 		}
 		return urlEntities;
 	}
